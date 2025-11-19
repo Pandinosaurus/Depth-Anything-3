@@ -113,6 +113,13 @@ def estimate_memory_requirement(num_images: int, process_res: int) -> float:
     This mirrors the simple policy used by the backend service so other code
     (e.g., Gradio UI) can make consistent decisions when checking available
     memory before loading a model or running inference.
+
+    Args:
+        num_images: Number of images to process.
+        process_res: Processing resolution.
+
+    Returns:
+        Estimated memory requirement in GB.
     """
     base_memory = 2.0
     per_image_memory = (process_res / 504) ** 2 * 0.5
