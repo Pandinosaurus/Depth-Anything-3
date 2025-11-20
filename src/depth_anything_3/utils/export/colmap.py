@@ -28,7 +28,7 @@ from .glb import _depths_to_world_points_with_colors
 def export_to_colmap(
     prediction: Prediction,
     export_dir: str,
-    images: list[np.ndarray | Image.Image | str],
+    image_paths: list[str],
     conf_thresh_percentile: float = 40.0,
     process_res_method: str = "upper_bound_resize",
 ) -> None:
@@ -48,9 +48,6 @@ def export_to_colmap(
     h, w = prediction.processed_images.shape[1:3]
     points_xyf = _create_xyf(num_frames, h, w)
     points_xyf = points_xyf[prediction.conf >= conf_thresh]
-    write_images = not isinstance(images[0], str)
-    if write_images:
-        os.makedirs(os.path.join(export_dir, "images"), exist_ok=True)
 
     # 2. Set Reconstruction
     reconstruction = pycolmap.Reconstruction()
@@ -61,21 +58,7 @@ def export_to_colmap(
         point3d_ids.append(point3d_id)
 
     for fidx in range(num_frames):
-        image = images[fidx]
-
-        if write_images:
-            image_name = f"{fidx:06d}.png"
-            image_path = os.path.join(export_dir, "images", image_name)
-            if isinstance(image, Image.Image):
-                image.save(image_path)
-            elif isinstance(image, cv.Mat):
-                cv.imwrite(image_path)
-            else:
-                raise ValueError(f"Unsupported image type: {type(image)}")
-        else:
-            image_name = os.path.basename(image)
-
-        orig_w, orig_h = _get_orig_size(image)
+        orig_w, orig_h = Image.open(image_paths[fidx]).size
 
         intrinsic = prediction.intrinsics[fidx]
         if process_res_method.endswith("resize"):
@@ -136,14 +119,11 @@ def export_to_colmap(
 
         # set and add image
         image.frame_id = image.image_id
-        image.name = image_name
+        image.name = os.path.basename(image_paths[fidx])
         image.points2D = pycolmap.Point2DList(point2d_list)
         reconstruction.add_image(image)
 
     # 3. Export
-    if write_images:
-        export_dir = os.path.join(export_dir, "sparse")
-        os.makedirs(export_dir, exist_ok=True)
     reconstruction.write(export_dir)
 
 
@@ -168,14 +148,3 @@ def _create_xyf(num_frames, height, width):
     points_xyf = np.stack((x_coords, y_coords, f_coords), axis=-1)
 
     return points_xyf
-
-
-def _get_orig_size(img: cv.Mat | Image.Image | str) -> tuple[int, int]:
-    if isinstance(img, str):
-        return Image.open(img).convert("RGB").size
-    elif isinstance(img, cv.Mat):
-        return img.shape[1], img.shape[0]
-    elif isinstance(img, Image.Image):
-        return img.size
-    else:
-        raise ValueError(f"Unsupported image type: {type(img)}")

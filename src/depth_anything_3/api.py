@@ -176,6 +176,9 @@ class DepthAnything3(nn.Module, PyTorchModelHubMixin):
         if "gs" in export_format:
             assert infer_gs, "must set `infer_gs=True` to perform gs-related export."
 
+        if "colmap" in export_format:
+            assert isinstance(image[0], str), "`image` must be image paths for COLMAP export."
+
         # Preprocess images
         imgs_cpu, extrinsics, intrinsics = self._preprocess_inputs(
             image, extrinsics, intrinsics, process_res, process_res_method
@@ -245,7 +248,7 @@ class DepthAnything3(nn.Module, PyTorchModelHubMixin):
                     export_kwargs["colmap"] = {}
                 export_kwargs["colmap"].update(
                     {
-                        "images": image,
+                        "image_paths": image,
                         "conf_thresh_percentile": conf_thresh_percentile,
                         "process_res_method": process_res_method,
                     }
